@@ -1,0 +1,154 @@
+---
+title: "Homework 8"
+author: "Shynggys Magzanov"
+date: "30 10 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Exercise 5.3.3.
+
+### 1. 
+Let us recall the Ito's formula which is represented as follows:
+
+$$dV = \frac{\partial V}{\partial t} dV + \frac{\partial V}{\partial r} dr 
+      + \frac{1}{2} \frac{\partial^2 V}{\partial r^2} dr^2$$
+Now let $V = e^{\alpha t} (r(t) - b)$, then we have
+
+\begin{align*}
+\frac{\partial V}{\partial t} &= \alpha e^{\alpha t} (r(t) - b)\\ \\
+\frac{\partial V}{\partial r} &= e^{\alpha t}\\ \\ 
+\frac{\partial^2 V}{\partial r^2} &= 0\\ \\
+\end{align*}
+
+By substituting obtained result into the Ito Formula, we get
+
+\begin{align*}
+dV &= \alpha e^{\alpha t} (r(t) - b) dt + e^{\alpha t} dr\\ \\
+dV &= \sigma dW(t)
+\end{align*}
+
+Now let us integrate both sides from $t$ to $t + \Delta$,
+
+\begin{align*}
+e^{\alpha (t + \Delta)} [r(t+ \Delta) - b]
+&= e^{\alpha t} (r(t) - b) + \sigma [ W(\Delta + t) - W(t)]\\ \\ 
+r(t+ \Delta) - b
+&= e^{- \alpha t} (r(t) - b) + e^{- \alpha (t+ \Delta)} \sigma [ W(\Delta + t) - W(t)]\\ \\
+r(t+ \Delta) &= e^{- \alpha \Delta} r(t) + b(1 - e^{- \alpha \Delta})
+                + \frac{\sigma}{\sqrt{2 \alpha}} \sqrt{1 - e^{-2 \alpha \Delta}} Z
+\end{align*}
+
+Where $Z \sim N(0, 1)$.
+
+### 2. Now using the transition distribution obtained in the previous part we need to construct a random walk on time interval [0,T].
+
+To begin with, let us store the values of $\alpha, b,\sigma$ into a $3$x$18$ matrix, where every column stores one possible combination of the three input parameters.\
+Next, we define the function 'OUproc', based on what we obtained in part $1$ of this exercise. This function is called iteratively to calculate the values of $r(t)$ within the given time interval $[0,T]$ for a specified combination of all the input parameters.\
+Lastly, $for$ loop is built to call the function for $3$x$3$x$2$=$18$ times for all the possible combinations of parameters, and the results are plotted with corresponding titles clarifying the $\alpha, b,\sigma$ combinations.
+```{r}
+
+param.alpha <- c(rep(0.1, 6), rep(1, 6), rep(5, 6))
+param.b <- rep(c(-5, -5, -5, 5, 5, 5), 3)
+param.sigma <- rep(c(0.1, 0.2, 0.5), 6)
+
+param <- rbind(param.alpha,param.b, param.sigma)
+
+OUproc <- function(alpha, b, sigma, r.ini, T.t, Delta){
+  r <- c()
+  t <- 1
+  r[1] <- r.ini
+ 
+  for (t in 1:(T.t/Delta)){
+    z <- rnorm(1)
+    r[t + 1] <- exp(-alpha * Delta) * r[t] + b*(1 -  exp(-alpha * Delta)) +
+      (sigma / sqrt(2*alpha)) * sqrt(1 - exp(-2 * alpha * Delta)) * z 
+    t <- t + 1
+  }
+  return(r)
+}
+
+i <- 1
+for (i in 1:18){
+  result <- OUproc (param[1, i], param[2, i], param[3, i], 1, 500, 1/500)
+  plot(result, type = "l", xlab = "Iterations", ylab = "r(t)",
+       main = paste0("Orstein–Uhlenbeck process with parameters ", param[1, i], ", ", param[2, i], ", ", param[3, i], "."))
+}
+```
+
+As it can be seen from the graphs, the value of $\alpha$ presents the speed for $r(t)$ to hit $b$; while the value of $\sigma$ presents the volatility.
+
+### 3. We need to use Euler–Maruyama method to approximate the simulation done in the previous part. 
+For this question let us fix input parameters as $\alpha=0.1, b=-5, \sigma=0.1$. First, let us implement the Random walk using the approximation.
+
+```{r}
+param.alpha <- 0.1
+param.b <- -5
+param.sigma <- 0.1
+
+
+EMapprox <- function(alpha, b, sigma, r.ini, T.t, dt){
+  r <- c()
+  t <- 1
+  r[1] <- r.ini
+ 
+  for (t in 1:(T.t)){
+    dW <- rnorm(1,mean = 0, sd = sqrt(dt))
+    r[t + 1] <- r[t] + alpha * (b - r[t]) * dt + sigma * dW
+    t <- t + dt
+  }
+  return(r)
+}
+
+param.delta <- c(1, 0.5, 0.1, 0.01)
+
+for (i in 1:length(param.delta)){
+   result_2 <-  EMapprox(param.alpha, param.b, param.sigma, 1, 500, param.delta[i])
+   plot(result_2, type = "l", xlab = "Time", ylab = "r(t)",
+       main = paste0("Euler-Maruyama approximation with delta = " , param.delta[i] ))
+}
+
+```
+
+As we can notice, as delta decreases, the approximation becomes worse. Now let us sample using Euler-Maruyama method and plot 4 histograms each corresponding to individual deltas chosen. Then we compare their densities to the true density.
+
+```{r}
+plot_true2 <- function(alpha, sigma, b, delta = 1, initial = 1, ad = FALSE, para = 1){
+  mean1 <- exp(-sigma * delta) * initial + b * (1-exp(-alpha * delta))
+  sd1 <- sigma / sqrt(2 * alpha) * sqrt(1 - exp(-2 * alpha * delta))
+  temp <- list(NULL, c(mean1 -5 * sd1, mean1 + 5 * sd1))
+  curve(dnorm(x, mean = mean1, sd = sd1), col = 'red', 
+        xlim = temp[[para]],
+        main = 'Real density', ylab = 'Density', xlab = 'r(1)', add = ad)
+}
+
+plot_true2(0.1, 0.1, -5)
+```
+```{r}
+EMsample <- function(alpha, sigma, b, delta, initial = 1, sample_size = 1000){
+  n <- length(alpha)
+  r_current <- matrix(rep(initial, sample_size), sample_size, n)
+  alpha1 <- matrix(rep(alpha, sample_size), sample_size, n, byrow = TRUE)
+  for (i in 1:(1/delta)){
+    mean1 <- r_current + alpha1 * (b - r_current) * delta
+    sd1 <- sigma * delta
+    temp <- rnorm(sample_size * n, mean = t(mean1), sd = sd1)
+    r_current <- matrix(temp, sample_size, n, byrow = TRUE)
+  }
+  return(r_current) 
+}
+
+par(mfrow=c(3,2))
+lines(plot_true2(0.1, 0.1, -5))
+new_sample <- matrix(nrow = 1000, ncol = 4)
+for (i in 1:length(param.delta)){
+  new_sample[,i] <- EMsample(0.1, 0.1, -5, param.delta[i])
+  hist(new_sample[,i], probability = TRUE, main = paste0("Histogram of EM sample with delta = ", param.delta[i]),
+       xlab = "Values", ylab = "Frequency")
+  lines(density(new_sample[,i]))
+}
+````
+
+Again, notice that as delta decreases, the approximation provides worse results. 
