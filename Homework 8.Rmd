@@ -149,6 +149,60 @@ for (i in 1:length(param.delta)){
        xlab = "Values", ylab = "Frequency")
   lines(density(new_sample[,i]))
 }
-````
+```
 
 Again, notice that as delta decreases, the approximation provides worse results. 
+
+
+## Exercise 5.3.4
+### 1) We need to figure out the distrubution of N(5) and it's parameter.
+
+Since we are given that it is a Poisson process, we already know that the number of events in an interval $(0,5]$ will be a Poisson random variable with a mean $\Lambda(5)=\int_{0}^{5}\lambda(t)dt$. Plugging in the intensity function to the integral and using Mathematica for integration, one can obtain:
+\begin{align*}
+\Lambda(5)=\int_{0}^{5}\sqrt{t} + \exp{-t}sin(2\pi t) dt = 7.607737136139157
+\end{align*}
+
+Thus, $N(5)\sim PN(7.607737136139157)$.
+
+### 2) and 3) Now we need to write a function to simulate from this Poisson process and generate events 1000 times. 
+
+We will use the Thinning method to generate from the Poisson process. To do so we need to find $\lambda_{max}$, which turns out to be $5$. 
+
+```{r}
+
+rnhpp <- function(intensity, intmax, tmax) {
+    n <- rpois(1, intmax)
+    tt <- runif(n, 0, tmax)
+    u <- runif(n)
+    accept <- u < intensity(tt) / intmax
+    sort(tt[accept])
+}
+
+intfun <- function(x) sqrt(x)+exp(-x)*sin(2*pi*x)
+
+interval <- c(0,5)
+intmax <- optimize(intfun, interval,
+         maximum = TRUE,
+         tol = .Machine$double.eps^0.25)
+intmax <- intmax$maximum
+
+pp <- unlist(replicate(1000, rnhpp(intfun, intmax, 5)))
+hist(pp, probability = TRUE, main = paste0("Histogram of Poisson process between 0 and 5"),
+     xlab = "Time", ylab = "Value")
+lines(density(pp), col = "Red")
+
+```
+
+Above is the sampled Poisson process and it's kernel density in red. Now let us plot $\lambda(t)/\int_{0}^{5}\lambda(t)dt$.
+
+```{r}
+
+fun2 <- function(x){
+  return(intfun(x)/7.607737136139157)
+}
+curve(fun2, from = 0, to = 5, xlab = "Time", ylab = "Density")
+lines(density(pp), col = "Red")
+
+```
+
+Here the black lines represents $\lambda(t)/\int_{0}^{5}\lambda(t)dt$, while red line represents kernel density.
